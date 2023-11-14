@@ -1,6 +1,6 @@
 [package]
-name = "kma_hryhorenko_parser"
-description = "parser"
+name = "meadorc"
+description = "meador scripting language compiler"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
@@ -8,4 +8,5 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-peg = "0.8.2"
+anyhow = "1.0.75"
+thiserror = "1.0.48"
