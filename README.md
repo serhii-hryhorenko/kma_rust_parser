@@ -1,5 +1,5 @@
-### KMA Parser
+# KMA Parser
 
-# Educational purpose parser.
+# Parser of a simple custom scripting language.
 
-# todo...
+## Already supported:
