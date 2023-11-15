@@ -1,8 +1,7 @@
 use std::str::FromStr;
 
 use pest::Parser;
-use pest::iterators::{Pair, Tokens};
-use pest::Token;
+use pest::iterators::Pair;
 use pest_derive::Parser;
 
 use crate::bi_operator::BiOperator;
@@ -52,8 +51,6 @@ impl MeadorCompiler {
 
                 let expression = inner.next().unwrap();
                 let expression = Self::compile_expression(expression);
-
-                println!("Variable declaration: {} = {:?}", name, expression);
 
                 Statement::Assignment(name, expression)
             }
@@ -108,7 +105,7 @@ impl MeadorCompiler {
                 let next_right = Self::compile_value_expression(next_right);
 
                 // If the next operator has a higher precedence, we need to swap the left and right
-                if next_operator.precedence() > operator.precedence() {
+                if next_operator.precedence() > last_operator.precedence() {
                     right = Expression::BinaryExpression(Box::new(right), operator, Box::new(next_right));
                 } else {
                     left = Expression::BinaryExpression(Box::new(left), operator, Box::new(right));
@@ -163,16 +160,6 @@ impl MeadorCompiler {
         let arguments = inner.map(|expression| Self::compile_expression(expression)).collect();
 
         Expression::Function(name, arguments)
-    }
-
-    fn compile_operator(pair: Pair<Rule>) -> BiOperator {
-        match pair.as_rule() {
-            Rule::bi_operator => {
-                let operator = pair.as_str();
-                BiOperator::from_str(operator).unwrap()
-            }
-            _ => panic!("Unknown operator: {:?}", pair)
-        }
     }
 }
 
