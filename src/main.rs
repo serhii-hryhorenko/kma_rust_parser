@@ -1,13 +1,21 @@
-peg::parser!{
-    grammar list_parser() for str {
-      rule number() -> u32
-        = n:$(['0'..='9']+) {? n.parse().or(Err("u32")) }
-  
-      pub rule list() -> Vec<u32>
-        = "[" l:(number() ** ",") "]" { l }
-    }
-  }
-    
-  pub fn main() {
-      println!("{:?}", list_parser::list("[1,1,2,3,5,8]"));
-  }
+use crate::compiler::MeadorCompiler;
+use runtime::RuntimeError;
+
+mod compiler;
+mod runtime;
+mod expression;
+mod statement;
+mod bi_operator;
+
+
+pub fn main() -> Result<(), RuntimeError> {
+    let code = "let x = (6 / (1 + 2 * 2)) * 2;
+                        print(x);
+                        let y = 2;
+                        let z = x + y;
+                        ".to_string();
+
+    let program = MeadorCompiler::compile(&code);
+
+    program.execute()
+}
