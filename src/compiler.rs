@@ -21,15 +21,15 @@ pub struct MeadorCompiler;
 #[derive(Debug, Error)]
 pub enum CompilationError {
     #[error("Invalid statement at position {pos}: {context}")]
-    InvalidStatement { pos: ErrorLocation, context: String },
+    Statement { pos: ErrorLocation, context: String },
     #[error("Invalid expression at position {pos}: {context}")]
-    InvalidExpression { pos: ErrorLocation, context: String },
+    Expression { pos: ErrorLocation, context: String },
     #[error("Invalid operator at position {pos}: {context}")]
-    InvalidOperator { pos: ErrorLocation, context: String },
+    Operator { pos: ErrorLocation, context: String },
     #[error("Invalid value at position {pos} {context}")]
-    InvalidValue { pos: ErrorLocation, context: String },
+    Value { pos: ErrorLocation, context: String },
     #[error("Invalid start of program at position {pos}: {context}")]
-    InvalidStartOfProgram { pos: ErrorLocation, context: String },
+    StartOfProgram { pos: ErrorLocation, context: String },
 }
 
 #[derive(Debug)]
@@ -63,14 +63,14 @@ impl std::fmt::Display for ErrorLocation {
 }
 
 impl MeadorCompiler {
-    pub fn compile(code: &String) -> Result<Program, CompilationError> {
+    pub fn compile(code: &str) -> Result<Program, CompilationError> {
         let parsed_statements = MeadorParser::parse(Rule::program, code)
-            .map_err(|err| CompilationError::InvalidStartOfProgram {
+            .map_err(|err| CompilationError::StartOfProgram {
                 pos: err.line_col.into(),
                 context: "Failed to parse program".to_string(),
             })?
             .next()
-            .ok_or(CompilationError::InvalidStartOfProgram {
+            .ok_or(CompilationError::StartOfProgram {
                 pos: ErrorLocation::LineCol { line: 0, column: 0 },
                 context: "No statements found in program".to_string(),
             })?
@@ -87,7 +87,7 @@ impl MeadorCompiler {
                     statements.push(statement)
                 }
                 invalid_rule => {
-                    return Err(CompilationError::InvalidStatement {
+                    return Err(CompilationError::Statement {
                         pos: ErrorLocation::Position(statement.as_span().start_pos().pos()),
                         context: format!("Unexpected input: {:?}", invalid_rule),
                     })
@@ -154,7 +154,7 @@ impl MeadorCompiler {
                 Statement::CodeBlock(statements?)
             }
             invalid_rule => {
-                return Err(CompilationError::InvalidStatement {
+                return Err(CompilationError::Statement {
                     pos: ErrorLocation::Position(statement.as_span().start_pos().pos()),
                     context: format!("Unexpected input: {:?}", invalid_rule),
                 })
@@ -220,7 +220,7 @@ impl MeadorCompiler {
         let value = match value.as_rule() {
             Rule::int | Rule::decimal => {
                 let number = value.as_str().trim().parse::<f64>().map_err(|_| {
-                    CompilationError::InvalidValue {
+                    CompilationError::Value {
                         pos: ErrorLocation::Position(value.as_span().start_pos().pos()),
                         context: "Failed to parse number".to_string(),
                     }
@@ -229,7 +229,7 @@ impl MeadorCompiler {
             }
             Rule::boolean => {
                 let boolean = value.as_str().trim().parse::<bool>().map_err(|_| {
-                    CompilationError::InvalidValue {
+                    CompilationError::Value {
                         pos: ErrorLocation::Position(value.as_span().start_pos().pos()),
                         context: "Failed to parse boolean".to_string(),
                     }
@@ -249,7 +249,7 @@ impl MeadorCompiler {
                 Expression::Variable(name)
             }
             _ => {
-                return Err(CompilationError::InvalidValue {
+                return Err(CompilationError::Value {
                     pos: ErrorLocation::Position(value.as_span().start_pos().pos()),
                     context: format!("Unexpected input: {:?}", value),
                 })

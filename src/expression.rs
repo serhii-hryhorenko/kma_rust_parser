@@ -38,7 +38,7 @@ impl Expression {
             }
             Expression::Variable(name) => {
                 if let Some(value) = context.get_variable(name) {
-                    Ok(value.clone())
+                    Ok(*value)
                 } else {
                     Err(format!("Unknown variable: {}", name).into())
                 }
