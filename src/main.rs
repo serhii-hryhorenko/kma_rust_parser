@@ -9,10 +9,21 @@ mod statement;
 mod value;
 mod bi_operator;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     RuntimeError(RuntimeError),
     CompileError(CompilationError),
+    InvalidSourcePath(String)
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+       match self {
+           Error::RuntimeError(error) => write!(f, "{}", error),
+           Error::CompileError(error) => write!(f, "{}", error),
+           Error::InvalidSourcePath(path) => write!(f, "Invalid source path: {}", path)
+       }
+    }
 }
 
 impl From<RuntimeError> for Error {
@@ -28,7 +39,13 @@ impl From<CompilationError> for Error {
 }
 
 pub fn main() -> Result<(), Error> {
-    let code = "print(2 * 2 + 2 * 2)".to_string();
+    let code = std::env::args().nth(1)
+        .ok_or_else(|| Error::InvalidSourcePath("No source file provided".to_string()))
+        .map(std::path::PathBuf::from)
+        .and_then(|path| {
+            std::fs::read_to_string(path)
+                .map_err(|_| Error::InvalidSourcePath("Failed to read source file".to_string()))
+        })?;
 
     let program = MeadorCompiler::compile(&code).map_err(Error::from)?;
     let mut context = ExecutionContext::new(std::io::stdout());
