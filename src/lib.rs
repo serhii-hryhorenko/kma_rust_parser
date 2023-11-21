@@ -1,6 +1,6 @@
-pub mod compiler;
-pub mod value;
-pub mod runtime;
-mod expression;
-mod statement;
 mod bi_operator;
+pub mod compiler;
+mod expression;
+pub mod runtime;
+mod statement;
+pub mod value;

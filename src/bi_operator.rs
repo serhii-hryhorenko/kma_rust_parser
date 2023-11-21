@@ -1,4 +1,4 @@
-use crate::{value::Value, runtime::RuntimeError};
+use crate::{runtime::RuntimeError, value::Value};
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy)]
@@ -33,17 +33,34 @@ impl BiOperator {
                 Bi::LessThanOrEqual => (left <= right).into(),
                 Bi::GreaterThan => (left > right).into(),
                 Bi::GreaterThanOrEqual => (left >= right).into(),
-                _ => return Err(format!("Invalid types for numerical binary operator `{:?}`: {:?} and {:?}", self, left, right).into())
+                _ => {
+                    return Err(format!(
+                        "Invalid types for numerical binary operator `{:?}`: {:?} and {:?}",
+                        self, left, right
+                    )
+                    .into())
+                }
             },
             (Boolean(left), Boolean(right)) => match self {
                 BiOperator::Conjuction => left && right,
                 BiOperator::Disjunction => left || right,
-                _ => return Err(
-                    format!("Invalid types for logical binary operator `{:?}`: {:?} and {:?}", self, left, right).into()
-                )
-            }.into(),
+                _ => {
+                    return Err(format!(
+                        "Invalid types for logical binary operator `{:?}`: {:?} and {:?}",
+                        self, left, right
+                    )
+                    .into())
+                }
+            }
+            .into(),
 
-            _ => return Err(format!("Invalid types for binary operator `{:?}`: {:?} and {:?}", self, left, right).into())
+            _ => {
+                return Err(format!(
+                    "Invalid types for binary operator `{:?}`: {:?} and {:?}",
+                    self, left, right
+                )
+                .into())
+            }
         };
 
         Ok(result)
@@ -60,7 +77,7 @@ impl BiOperator {
             Bi::NotEqual => 3,
             Bi::Add | BiOperator::Subtract => 4,
             Bi::Multiply | BiOperator::Divide => 5,
-            Bi::Power => 6,        
+            Bi::Power => 6,
         }
     }
 }

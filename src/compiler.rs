@@ -1,16 +1,16 @@
 use std::str::FromStr;
 
-use pest::{Parser, Position};
+use anyhow::Result;
 use pest::error::LineColLocation;
 use pest::iterators::Pair;
+use pest::{Parser, Position};
 use pest_derive::Parser;
 use thiserror::Error;
-use anyhow::Result;
 
 use crate::bi_operator::BiOperator;
 use crate::expression::Expression;
-use crate::statement::Statement;
 use crate::runtime::{ExecutionContext, RuntimeError};
+use crate::statement::Statement;
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
@@ -47,7 +47,7 @@ impl From<LineColLocation> for ErrorLocation {
     }
 }
 
-impl <'a> From<Position<'a>> for ErrorLocation {
+impl<'a> From<Position<'a>> for ErrorLocation {
     fn from(position: Position) -> Self {
         Self::Position(position.pos())
     }
@@ -69,7 +69,8 @@ impl MeadorCompiler {
                 pos: err.line_col.into(),
                 context: "Failed to parse program".to_string(),
             })?
-            .next().ok_or(CompilationError::InvalidStartOfProgram {
+            .next()
+            .ok_or(CompilationError::InvalidStartOfProgram {
                 pos: ErrorLocation::LineCol { line: 0, column: 0 },
                 context: "No statements found in program".to_string(),
             })?
@@ -84,11 +85,13 @@ impl MeadorCompiler {
                     let statement = statement.into_inner().next().unwrap();
                     let statement = Self::compile_statement(statement)?;
                     statements.push(statement)
-                },
-                invalid_rule => return Err(CompilationError::InvalidStatement {
-                    pos: ErrorLocation::Position(statement.as_span().start_pos().pos()),
-                    context: format!("Unexpected input: {:?}", invalid_rule),
-                })
+                }
+                invalid_rule => {
+                    return Err(CompilationError::InvalidStatement {
+                        pos: ErrorLocation::Position(statement.as_span().start_pos().pos()),
+                        context: format!("Unexpected input: {:?}", invalid_rule),
+                    })
+                }
             }
         }
 
@@ -119,11 +122,10 @@ impl MeadorCompiler {
                 let body = inner.next().unwrap().into_inner().next().unwrap();
                 let body = Self::compile_statement(body)?;
 
-                let else_body = inner.next()
-                    .map(|statement| {
-                        let else_statement = statement.into_inner().next().unwrap();
-                        Self::compile_statement(else_statement)
-                    });
+                let else_body = inner.next().map(|statement| {
+                    let else_statement = statement.into_inner().next().unwrap();
+                    Self::compile_statement(else_statement)
+                });
 
                 if let Some(else_body) = else_body {
                     Statement::Conditional(condition, Box::new(body), Some(Box::new(else_body?)))
@@ -143,17 +145,20 @@ impl MeadorCompiler {
                 Statement::Loop(condition, Box::new(body))
             }
             Rule::code_block => {
-                let statements: Result<Vec<Statement>, CompilationError> = statement.into_inner()
+                let statements: Result<Vec<Statement>, CompilationError> = statement
+                    .into_inner()
                     .map(|stmt| stmt.into_inner().next().unwrap())
                     .map(|stmt| Self::compile_statement(stmt))
                     .collect();
 
                 Statement::CodeBlock(statements?)
             }
-            invalid_rule => return Err(CompilationError::InvalidStatement {
-                pos: ErrorLocation::Position(statement.as_span().start_pos().pos()),
-                context: format!("Unexpected input: {:?}", invalid_rule),
-            })
+            invalid_rule => {
+                return Err(CompilationError::InvalidStatement {
+                    pos: ErrorLocation::Position(statement.as_span().start_pos().pos()),
+                    context: format!("Unexpected input: {:?}", invalid_rule),
+                })
+            }
         };
 
         Ok(statement)
@@ -172,51 +177,63 @@ impl MeadorCompiler {
         }
     }
 
-    fn compile_binary_expression(left: Expression, operator: BiOperator, mut inner: pest::iterators::Pairs<Rule>) -> Result<Expression, CompilationError> {
+    fn compile_binary_expression(
+        left: Expression,
+        operator: BiOperator,
+        mut inner: pest::iterators::Pairs<Rule>,
+    ) -> Result<Expression, CompilationError> {
         let right = inner.next().unwrap().into_inner().next().unwrap();
         let right = Self::compile_value_expression(right)?;
 
         if let Some(next_operator) = Self::parse_operator(inner.next()) {
             if next_operator.precedence() > operator.precedence() {
                 let right = Self::compile_binary_expression(right, next_operator, inner)?;
-                Ok(Expression::BinaryExpression(Box::new(left), operator, Box::new(right)))
+                Ok(Expression::BinaryExpression(
+                    Box::new(left),
+                    operator,
+                    Box::new(right),
+                ))
             } else {
                 let lh = Expression::BinaryExpression(Box::new(left), operator, Box::new(right));
                 Self::compile_binary_expression(lh, next_operator, inner)
             }
         } else {
-            Ok(Expression::BinaryExpression(Box::new(left), operator, Box::new(right)))
+            Ok(Expression::BinaryExpression(
+                Box::new(left),
+                operator,
+                Box::new(right),
+            ))
         }
     }
 
     fn parse_operator(pair: Option<Pair<Rule>>) -> Option<BiOperator> {
-        pair.and_then(|pair| {
-            match pair.as_rule() {
-                Rule::bi_operator => {
-                    let operator = pair.as_str();
-                    Some(BiOperator::from_str(operator).unwrap())
-                }
-                _ => None
+        pair.and_then(|pair| match pair.as_rule() {
+            Rule::bi_operator => {
+                let operator = pair.as_str();
+                Some(BiOperator::from_str(operator).unwrap())
             }
+            _ => None,
         })
     }
 
     fn compile_value_expression(value: Pair<Rule>) -> Result<Expression, CompilationError> {
         let value = match value.as_rule() {
             Rule::int | Rule::decimal => {
-                let number = value.as_str().trim().parse::<f64>()
-                    .map_err(|_| CompilationError::InvalidValue {
+                let number = value.as_str().trim().parse::<f64>().map_err(|_| {
+                    CompilationError::InvalidValue {
                         pos: ErrorLocation::Position(value.as_span().start_pos().pos()),
                         context: "Failed to parse number".to_string(),
-                    })?;
+                    }
+                })?;
                 Expression::Number(number)
             }
             Rule::boolean => {
-                let boolean = value.as_str().trim().parse::<bool>()
-                    .map_err(|_| CompilationError::InvalidValue {
+                let boolean = value.as_str().trim().parse::<bool>().map_err(|_| {
+                    CompilationError::InvalidValue {
                         pos: ErrorLocation::Position(value.as_span().start_pos().pos()),
                         context: "Failed to parse boolean".to_string(),
-                    })?;
+                    }
+                })?;
 
                 Expression::Boolean(boolean)
             }
@@ -231,10 +248,12 @@ impl MeadorCompiler {
                 let name = value.as_str().to_string();
                 Expression::Variable(name)
             }
-            _ => return Err(CompilationError::InvalidValue {
-                pos: ErrorLocation::Position(value.as_span().start_pos().pos()),
-                context: format!("Unexpected input: {:?}", value),
-            }),
+            _ => {
+                return Err(CompilationError::InvalidValue {
+                    pos: ErrorLocation::Position(value.as_span().start_pos().pos()),
+                    context: format!("Unexpected input: {:?}", value),
+                })
+            }
         };
 
         Ok(value)
@@ -243,16 +262,16 @@ impl MeadorCompiler {
     fn compile_function_call(pair: Pair<Rule>) -> Result<Expression, CompilationError> {
         let mut inner = pair.into_inner();
         let name = inner.next().unwrap().as_str().to_string();
-        let arguments: Result<Vec<Expression>, CompilationError> = inner.map(|expression| 
-            Self::compile_expression(expression)
-        ).collect();
+        let arguments: Result<Vec<Expression>, CompilationError> = inner
+            .map(|expression| Self::compile_expression(expression))
+            .collect();
 
         Ok(Expression::Function(name, arguments?))
     }
 }
 
 pub struct Program {
-    statements: Vec<Statement>
+    statements: Vec<Statement>,
 }
 
 impl Program {

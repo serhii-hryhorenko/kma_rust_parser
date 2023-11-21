@@ -10,7 +10,10 @@ pub struct ExecutionContext {
 
 impl ExecutionContext {
     pub fn new(stdout: std::io::Stdout) -> Self {
-        Self { variables: HashMap::new(), stdout }
+        Self {
+            variables: HashMap::new(),
+            stdout,
+        }
     }
 
     pub fn set_variable(&mut self, name: String, value: Value) {
@@ -42,7 +45,7 @@ impl ExecutionContext {
 
 #[derive(Debug)]
 pub struct RuntimeError {
-    message: String
+    message: String,
 }
 
 impl RuntimeError {

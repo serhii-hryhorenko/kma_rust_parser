@@ -29,7 +29,8 @@ impl Expression {
             Expression::Function(name, arguments) => {
                 let function = Function::from_str(name)?;
 
-                let arguments = arguments.iter()
+                let arguments = arguments
+                    .iter()
                     .map(|argument| argument.evaluate(context))
                     .collect::<Result<Vec<Value>, RuntimeError>>()?;
 
@@ -74,7 +75,11 @@ impl FromStr for Function {
 }
 
 impl Function {
-    fn apply(&self, arguments: &[Value], context: &mut ExecutionContext) -> Result<Value, RuntimeError> {
+    fn apply(
+        &self,
+        arguments: &[Value],
+        context: &mut ExecutionContext,
+    ) -> Result<Value, RuntimeError> {
         use Function::*;
         use Value::Numerical;
 

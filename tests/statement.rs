@@ -8,7 +8,8 @@ fn test_conditional_statement() -> Result<()> {
             let x = 3;
         } else {
             let x = 4;
-        }".to_string();
+        }"
+    .to_string();
 
     let program = MeadorCompiler::compile(&code)?;
     let mut context = ExecutionContext::new(std::io::stdout());
@@ -46,7 +47,7 @@ fn test_while_loop() -> Result<()> {
                 while x < 10 {
                     let x = x + 1;
                 }"
-        .to_string();
+    .to_string();
 
     let program = MeadorCompiler::compile(&code)?;
     let mut context = ExecutionContext::new(std::io::stdout());
@@ -68,7 +69,7 @@ fn test_code_block_statement() -> Result<()> {
                     let y = 3;
                     let x = x + y;
                 }"
-        .to_string();
+    .to_string();
 
     let program = MeadorCompiler::compile(&code)?;
     let mut context = ExecutionContext::new(std::io::stdout());

@@ -4,8 +4,7 @@ use anyhow::Result;
 
 #[test]
 fn test_complex_math() -> Result<()> {
-    let code = "let x = (6 / (1 + 2 ^ 2)) * 2;"
-        .to_string();
+    let code = "let x = (6 / (1 + 2 ^ 2)) * 2;".to_string();
 
     let program = MeadorCompiler::compile(&code)?;
     let mut context = ExecutionContext::new(std::io::stdout());
@@ -78,8 +77,7 @@ fn test_negative_numbers() -> Result<()> {
 
 #[test]
 fn test_invalid_program_compilation() -> Result<()> {
-    let code = "let x = 2 + 2 * 2"
-        .to_string();
+    let code = "let x = 2 + 2 * 2".to_string();
 
     let result = MeadorCompiler::compile(&code);
 
@@ -90,8 +88,7 @@ fn test_invalid_program_compilation() -> Result<()> {
 
 #[test]
 fn test_runtime_error() -> Result<()> {
-    let code = "let x = 5 + true;"
-        .to_string();
+    let code = "let x = 5 + true;".to_string();
 
     let program = MeadorCompiler::compile(&code)?;
     let mut context = ExecutionContext::new(std::io::stdout());
