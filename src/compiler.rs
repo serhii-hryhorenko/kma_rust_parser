@@ -5,7 +5,7 @@ use pest::iterators::Pair;
 use pest_derive::Parser;
 
 use crate::bi_operator::BiOperator;
-use crate::expression::Expression;
+use crate::expression::{Expression, self};
 use crate::statement::Statement;
 use crate::runtime::{ExecutionContext, RuntimeError};
 
@@ -51,16 +51,22 @@ impl MeadorCompiler {
 
                 let expression = inner.next().unwrap();
                 let expression = Self::compile_expression(expression);
+                println!("{:?}", expression);
 
                 Statement::Assignment(name, expression)
             }
             Rule::if_stmt => {
                 let mut inner = stmt.into_inner();
+
                 let condition = inner.next().unwrap();
                 let condition = Self::compile_expression(condition);
-                let body = inner.next().unwrap();
+
+                let body = inner.next().unwrap().into_inner().next().unwrap();
                 let body = Self::compile_statement(body);
-                let else_body = inner.next().map(|statement| Self::compile_statement(statement));
+
+                let else_body = inner.next().map(|statement| {
+                    Self::compile_statement(statement.into_inner().next().unwrap())
+                });
 
                 Statement::Conditional(condition, Box::new(body), else_body.map(|statement| Box::new(statement)))
             }
@@ -91,33 +97,29 @@ impl MeadorCompiler {
         let mut inner = pair.into_inner();
 
         let left = inner.next().unwrap().into_inner().next().unwrap();
-        let mut left = Self::compile_value_expression(left);
+        let left = Self::compile_value_expression(left);
 
-        // Binary expression
         if let Some(operator) = Self::parse_operator(inner.next()) {
-            let mut last_operator = operator;
-
-            let right = inner.next().unwrap().into_inner().next().unwrap();
-            let mut right = Self::compile_value_expression(right);
-
-            while let Some(next_operator) = Self::parse_operator(inner.next()) {
-                let next_right = inner.next().unwrap().into_inner().next().unwrap();
-                let next_right = Self::compile_value_expression(next_right);
-
-                // If the next operator has a higher precedence, we need to swap the left and right
-                if next_operator.precedence() > last_operator.precedence() {
-                    right = Expression::BinaryExpression(Box::new(right), operator, Box::new(next_right));
-                } else {
-                    left = Expression::BinaryExpression(Box::new(left), operator, Box::new(right));
-                    right = next_right;
-                }
-
-                last_operator = next_operator;
-            }
-
-            Expression::BinaryExpression(Box::new(left), operator, Box::new(right))
+            Self::compile_binary_expression(left, operator, inner)
         } else {
             left
+        }
+    }
+
+    fn compile_binary_expression(left: Expression, operator: BiOperator, mut inner: pest::iterators::Pairs<Rule>) -> Expression {
+        let right = inner.next().unwrap().into_inner().next().unwrap();
+        let right = Self::compile_value_expression(right);
+
+        if let Some(next_operator) = Self::parse_operator(inner.next()) {
+            if next_operator.precedence() > operator.precedence() {
+                let right = Self::compile_binary_expression(right, next_operator, inner);
+                Expression::BinaryExpression(Box::new(left), operator, Box::new(right))
+            } else {
+                let lh = Expression::BinaryExpression(Box::new(left), operator, Box::new(right));
+                Self::compile_binary_expression(lh, next_operator, inner)
+            }
+        } else {
+            Expression::BinaryExpression(Box::new(left), operator, Box::new(right))
         }
     }
 
@@ -138,6 +140,10 @@ impl MeadorCompiler {
             Rule::int | Rule::decimal => {
                 let number = value.as_str().trim().parse::<f64>().unwrap();
                 Expression::Number(number)
+            }
+            Rule::boolean => {
+                let boolean = value.as_str().trim().parse::<bool>().unwrap();
+                Expression::Boolean(boolean)
             }
             Rule::parenthesis => {
                 let expression = value.into_inner().next().unwrap();
@@ -168,11 +174,9 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn execute(&self) -> Result<(), RuntimeError> {
-        let mut context = ExecutionContext::new();
-
+    pub fn execute(&self, context: &mut ExecutionContext) -> Result<(), RuntimeError> {
         for statement in &self.statements {
-            statement.execute(&mut context)?;
+            statement.execute(context)?;
         }
 
         Ok(())

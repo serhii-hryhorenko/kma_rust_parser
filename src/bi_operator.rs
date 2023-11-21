@@ -1,4 +1,4 @@
-use crate::{expression::Value, runtime::RuntimeError};
+use crate::{value::Value, runtime::RuntimeError};
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy)]
@@ -14,6 +14,7 @@ pub enum BiOperator {
     LessThanOrEqual,
     GreaterThan,
     GreaterThanOrEqual,
+    NotEqual,
 }
 
 impl BiOperator {
@@ -32,17 +33,17 @@ impl BiOperator {
                 Bi::LessThanOrEqual => (left <= right).into(),
                 Bi::GreaterThan => (left > right).into(),
                 Bi::GreaterThanOrEqual => (left >= right).into(),
-                _ => return Err(format!("Invalid types for numerical binary operator: {:?} and {:?}", left, right).into())
+                _ => return Err(format!("Invalid types for numerical binary operator `{:?}`: {:?} and {:?}", self, left, right).into())
             },
             (Boolean(left), Boolean(right)) => match self {
                 BiOperator::Conjuction => left && right,
                 BiOperator::Disjunction => left || right,
                 _ => return Err(
-                    format!("Invalid types for logical binary operator: {:?} and {:?}", left, right).into()
+                    format!("Invalid types for logical binary operator `{:?}`: {:?} and {:?}", self, left, right).into()
                 )
             }.into(),
 
-            _ => return Err(format!("Invalid types for binary operator: {:?} and {:?}", left, right).into())
+            _ => return Err(format!("Invalid types for binary operator `{:?}`: {:?} and {:?}", self, left, right).into())
         };
 
         Ok(result)
@@ -52,13 +53,14 @@ impl BiOperator {
         use BiOperator as Bi;
 
         match self {
-            Bi::Add | BiOperator::Subtract => 1,
-            Bi::Multiply | BiOperator::Divide => 2,
-            Bi::Power => 3,
-            Bi::Conjuction => 4,
-            Bi::Disjunction => 5,
-            Bi::LessThan | BiOperator::LessThanOrEqual => 6,
-            Bi::GreaterThan | BiOperator::GreaterThanOrEqual => 6,
+            Bi::Disjunction => 1,
+            Bi::Conjuction => 2,
+            Bi::LessThan | BiOperator::LessThanOrEqual => 3,
+            Bi::GreaterThan | BiOperator::GreaterThanOrEqual => 3,
+            Bi::NotEqual => 3,
+            Bi::Add | BiOperator::Subtract => 4,
+            Bi::Multiply | BiOperator::Divide => 5,
+            Bi::Power => 6,        
         }
     }
 }
@@ -81,6 +83,7 @@ impl FromStr for BiOperator {
             "<=" => Bi::LessThanOrEqual,
             ">" => Bi::GreaterThan,
             ">=" => Bi::GreaterThanOrEqual,
+            "!=" => Bi::NotEqual,
             _ => return Err(format!("Unknown BiOperator: {}", value)),
         };
 

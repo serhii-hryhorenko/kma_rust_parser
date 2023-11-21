@@ -2,39 +2,23 @@ use std::str::FromStr;
 
 use crate::bi_operator::BiOperator;
 use crate::runtime::{ExecutionContext, RuntimeError};
+use crate::value::Value;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     Number(f64),
+    Boolean(bool),
     BinaryExpression(Box<Expression>, BiOperator, Box<Expression>),
     BracketExpression(Box<Expression>),
     Function(String, Vec<Expression>),
     Variable(String),
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Value {
-    Numerical(f64),
-    Boolean(bool),
-    Void,
-}
-
-impl From<f64> for Value {
-    fn from(value: f64) -> Self {
-        Value::Numerical(value)
-    }
-}
-
-impl From<bool> for Value {
-    fn from(value: bool) -> Self {
-        Value::Boolean(value)
-    }
-}
-
 impl Expression {
-    pub fn evaluate(&self, context: &ExecutionContext) -> Result<Value, RuntimeError> {
+    pub fn evaluate(&self, context: &mut ExecutionContext) -> Result<Value, RuntimeError> {
         match self {
             Expression::Number(number) => Ok(Value::from(*number)),
+            Expression::Boolean(boolean) => Ok(Value::from(*boolean)),
             Expression::BracketExpression(expression) => expression.evaluate(context),
             Expression::BinaryExpression(left, operator, right) => {
                 let left = left.evaluate(context)?;
@@ -49,7 +33,7 @@ impl Expression {
                     .map(|argument| argument.evaluate(context))
                     .collect::<Result<Vec<Value>, RuntimeError>>()?;
 
-                Ok(function.apply(arguments.as_slice())?)
+                Ok(function.apply(arguments.as_slice(), context)?)
             }
             Expression::Variable(name) => {
                 if let Some(value) = context.get_variable(name) {
@@ -69,7 +53,6 @@ enum Function {
     Asin,
     Acos,
     Atan,
-    Atan2,
     Print,
 }
 
@@ -84,7 +67,6 @@ impl FromStr for Function {
             "asin" => Ok(Function::Asin),
             "acos" => Ok(Function::Acos),
             "atan" => Ok(Function::Atan),
-            "atan2" => Ok(Function::Atan2),
             "print" => Ok(Function::Print),
             _ => Err(format!("Unknown function: {}", value)),
         }
@@ -92,7 +74,7 @@ impl FromStr for Function {
 }
 
 impl Function {
-    fn apply(&self, arguments: &[Value]) -> Result<Value, RuntimeError> {
+    fn apply(&self, arguments: &[Value], context: &mut ExecutionContext) -> Result<Value, RuntimeError> {
         use Function::*;
         use Value::Numerical;
 
@@ -139,15 +121,8 @@ impl Function {
                     return Err("Invalid arguments for atan function".to_string().into());
                 }
             }
-            Atan2 => {
-                if let [Numerical(left), Value::Numerical(right)] = arguments {
-                    left.atan2(*right).into()
-                } else {
-                    return Err("Invalid arguments for atan2 function".to_string().into());
-                }
-            }
             Print => {
-                println!("{:?}", arguments);
+                context.write(arguments);
                 Value::Void
             }
         };
