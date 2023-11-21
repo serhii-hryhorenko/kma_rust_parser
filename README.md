@@ -2,6 +2,8 @@
 
 Meador is a simple, custom scripting language designed for educational purposes.
 
+### [crates.io](https://crates.io/crates/meadorc)
+
 ## Language Description
 
 Meador is a statically-typed language with a syntax similar to JavaScript and Rust.
